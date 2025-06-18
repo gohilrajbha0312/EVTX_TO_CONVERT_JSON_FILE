@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File to JSON Converter</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1c2e 0%, #2d3748 100%);
+        }
+        .drop-zone {
+            border: 2px dashed #4a5568;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+        }
+        .drop-zone:hover {
+            border-color: #60a5fa;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .file-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+        }
+        .file-type-badge {
+            font-size: 0.75rem;
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            font-weight: 500;
+        }
+        .file-type-excel {
+            background-color: rgba(46, 125, 50, 0.2);
+            color: #81c784;
+        }
+        .file-type-pdf {
+            background-color: rgba(21, 101, 192, 0.2);
+            color: #64b5f6;
+        }
+        .file-type-evtx {
+            background-color: rgba(123, 31, 162, 0.2);
+            color: #ba68c8;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            transform: translateY(-1px);
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            transition: all 0.3s ease;
+        }
+        .btn-success:hover {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body class="min-h-screen text-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-2xl mx-auto">
+            <div class="text-center mb-8">
+                <h1 class="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-400 to-purple-500 text-transparent bg-clip-text">
+                    File to JSON Converter
+                </h1>
+                <p class="text-gray-400">Convert your files to JSON format with ease</p>
+            </div>
+            
+            <div class="glass-card rounded-xl shadow-2xl p-6">
+                <form action="/convert" method="post" enctype="multipart/form-data" class="space-y-6">
+                    <div class="drop-zone rounded-lg p-8 text-center cursor-pointer" id="dropZone">
+                        <input type="file" name="files[]" id="fileInput" class="hidden" accept=".xlsx,.xls,.pdf,.evtx" multiple>
+                        <div class="space-y-4">
+                            <div class="text-blue-400 mb-4">
+                                <i class="fas fa-cloud-upload-alt text-5xl"></i>
+                            </div>
+                            <div class="text-gray-300">
+                                <p class="text-lg font-medium">Drag and drop your files here</p>
+                                <p class="text-sm text-gray-400 mt-2">or</p>
+                                <button type="button" class="mt-4 px-6 py-3 btn-primary text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900" onclick="document.getElementById('fileInput').click()">
+                                    <i class="fas fa-folder-open mr-2"></i>
+                                    Browse Files
+                                </button>
+                            </div>
+                            <p class="text-sm text-gray-400 mt-4">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Supported formats: .xlsx, .xls, .pdf, .evtx
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div id="fileList" class="hidden">
+                        <h3 class="text-lg font-medium text-gray-200 mb-3">
+                            <i class="fas fa-list-ul mr-2"></i>
+                            Selected Files
+                        </h3>
+                        <div class="file-list rounded-lg p-4 custom-scrollbar">
+                            <ul id="fileNames" class="space-y-3"></ul>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button type="submit" class="px-8 py-4 btn-success text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                            <i class="fas fa-exchange-alt mr-2"></i>
+                            Convert to JSON
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const fileNames = document.getElementById('fileNames');
+        let selectedFiles = new Set();
+
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        // Highlight drop zone when item is dragged over it
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        // Handle dropped files
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function preventDefaults (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function highlight(e) {
+            dropZone.classList.add('border-blue-400');
+            dropZone.style.transform = 'scale(1.02)';
+        }
+
+        function unhighlight(e) {
+            dropZone.classList.remove('border-blue-400');
+            dropZone.style.transform = 'scale(1)';
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        fileInput.addEventListener('change', function() {
+            handleFiles(this.files);
+        });
+
+        function getFileTypeBadge(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            if (ext === 'pdf') {
+                return '<span class="file-type-badge file-type-pdf"><i class="fas fa-file-pdf mr-1"></i>PDF</span>';
+            } else if (ext === 'xlsx' || ext === 'xls') {
+                return '<span class="file-type-badge file-type-excel"><i class="fas fa-file-excel mr-1"></i>Excel</span>';
+            } else if (ext === 'evtx') {
+                return '<span class="file-type-badge file-type-evtx"><i class="fas fa-file-alt mr-1"></i>EVTX</span>';
+            }
+            return '';
+        }
+
+        function handleFiles(files) {
+            for (let file of files) {
+                if (file.name.match(/\.(xlsx|xls|pdf|evtx)$/i)) {
+                    selectedFiles.add(file);
+                }
+            }
+            updateFileList();
+        }
+
+        function updateFileList() {
+            if (selectedFiles.size > 0) {
+                fileList.classList.remove('hidden');
+                fileNames.innerHTML = '';
+                selectedFiles.forEach(file => {
+                    const li = document.createElement('li');
+                    li.className = 'flex items-center justify-between text-sm text-gray-300 bg-gray-800 bg-opacity-50 p-3 rounded-lg';
+                    li.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            ${getFileTypeBadge(file.name)}
+                            <span class="font-medium">${file.name}</span>
+                        </div>
+                        <button type="button" class="text-red-400 hover:text-red-300 transition-colors" onclick="removeFile('${file.name}')">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                    fileNames.appendChild(li);
+                });
+            } else {
+                fileList.classList.add('hidden');
+            }
+        }
+
+        function removeFile(fileName) {
+            selectedFiles.forEach(file => {
+                if (file.name === fileName) {
+                    selectedFiles.delete(file);
+                }
+            });
+            updateFileList();
+        }
+
+        // Update the form submission to use the selected files
+        document.querySelector('form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('files[]', file);
+            });
+            
+            fetch('/convert', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.blob();
+                }
+                return response.json().then(err => Promise.reject(err));
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'converted_files.zip';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+                selectedFiles.clear();
+                updateFileList();
+            })
+            .catch(error => {
+                alert(error.error || 'An error occurred during conversion');
+            });
+        });
+    </script>
+</body>
+</html> 
